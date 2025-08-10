@@ -457,8 +457,30 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-        <section className="md:col-span-1">
+      <main className="max-w-7xl mx-auto p-4 flex flex-col md:flex-row gap-4">
+        <section className="md:w-1/4 space-y-3 order-2 md:order-1">
+          <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
+            <div className="flex items-center gap-2 mb-2"><BarChart2 className="w-4 h-4"/><h3 className="font-semibold">Statistiken</h3></div>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div>Lebenszeit‑Cookies: <span className="font-semibold">{fmt(totalCookies)}</span></div>
+              <div>Klicks: <span className="font-semibold">{stats.clicks}</span></div>
+              <div>Peak CPS: <span className="font-semibold">{fmt(stats.peakCps)}</span></div>
+              <div>Achievements: <span className="font-semibold">{unlockedAchievements().length}/{ACHIEVEMENTS.length}</span></div>
+            </div>
+            <div className="h-32 mt-2">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={cpsHistory} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                  <XAxis dataKey="t" hide tick={false} />
+                  <YAxis hide />
+                  <RTooltip formatter={(v) => fmt(v)} labelFormatter={() => "CPS"} />
+                  <Line type="monotone" dataKey="cps" dot={false} strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </section>
+
+        <section className="flex-1 order-1 md:order-2">
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="relative">
             <div className="absolute -inset-8 blur-3xl rounded-full" style={{ background: `radial-gradient(circle at 50% 50%, rgba(255,200,130,${0.25+bgGlow/100}), rgba(0,0,0,0))` }} />
             <EffectLayer buildings={buildings} />
@@ -509,30 +531,10 @@ export default function App() {
                 </motion.div>
               )}
             </AnimatePresence>
-
-            <div className="mt-4 p-4 rounded-2xl bg-white/5 border border-white/10">
-              <div className="flex items-center gap-2 mb-2"><BarChart2 className="w-4 h-4"/><h3 className="font-semibold">Statistiken</h3></div>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div>Lebenszeit‑Cookies: <span className="font-semibold">{fmt(totalCookies)}</span></div>
-                <div>Klicks: <span className="font-semibold">{stats.clicks}</span></div>
-                <div>Peak CPS: <span className="font-semibold">{fmt(stats.peakCps)}</span></div>
-                <div>Achievements: <span className="font-semibold">{unlockedAchievements().length}/{ACHIEVEMENTS.length}</span></div>
-              </div>
-              <div className="h-32 mt-2">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={cpsHistory} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                    <XAxis dataKey="t" hide tick={false} />
-                    <YAxis hide />
-                    <RTooltip formatter={(v) => fmt(v)} labelFormatter={() => "CPS"} />
-                    <Line type="monotone" dataKey="cps" dot={false} strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
           </motion.div>
         </section>
 
-        <section className="md:col-span-1 space-y-3">
+        <aside className="md:w-1/4 space-y-3 order-3">
           <h2 className="flex items-center gap-2 font-semibold"><TrendingUp className="w-5 h-5"/> Produzenten</h2>
           {BASE_BUILDINGS.map((b) => {
             const owned = buildings[b.id].count;
@@ -565,9 +567,7 @@ export default function App() {
               <button onClick={doAscend} disabled={prestigeFromCookies(totalCookies) <= 0} className="ml-auto px-3 py-1 rounded-xl bg-purple-600/80 hover:bg-purple-600 disabled:opacity-50 flex items-center gap-1"><RotateCw className="w-4 h-4"/> Aufsteigen</button>
             </div>
           </div>
-        </section>
 
-        <section className="md:col-span-1 space-y-3">
           <h2 className="flex items-center gap-2 font-semibold"><Trophy className="w-5 h-5"/> Upgrades & Forschung</h2>
           <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
             <div className="text-sm mb-2 text-zinc-300">Einmalige Upgrades. Jeder Kauf verändert spürbar die Produktion oder Klicks.</div>
@@ -621,7 +621,7 @@ export default function App() {
               })}
             </div>
           </div>
-        </section>
+        </aside>
       </main>
 
       <AnimatePresence>
