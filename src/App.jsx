@@ -24,6 +24,8 @@ const fmt = (n) => {
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 const range = (n) => Array.from({ length: Math.max(0, Math.floor(n)) }, (_, i) => i);
 const tier = (count) => (count >= 100 ? 4 : count >= 50 ? 3 : count >= 25 ? 2 : count >= 10 ? 1 : count >= 1 ? 0 : -1);
+// Every 10 levels, producers gain a special strength boost
+const milestoneBonus = (count) => 1 + Math.floor(count / 10) * 0.5;
 
 // Visual colours per producer
 const BUILDING_COLORS = {
@@ -220,7 +222,7 @@ export default function App() {
     let sum = 0;
     for (const id of Object.keys(buildings)) {
       const b = buildings[id];
-      const per = b.baseCps * (buildingMult[id] || 1);
+      const per = b.baseCps * (buildingMult[id] || 1) * milestoneBonus(b.count);
       sum += b.count * per;
     }
     return sum;
@@ -338,16 +340,19 @@ export default function App() {
     const b = buildings[id];
     const cost = Math.floor(b.baseCost * Math.pow(COST_SCALE, b.count));
     if (cookies >= cost) {
+      const newCount = b.count + 1;
       setCookies(cookies - cost);
-      setBuildings({ ...buildings, [id]: { ...b, count: b.count + 1 } });
+      setBuildings({ ...buildings, [id]: { ...b, count: newCount } });
       spawnFloat(`${b.emoji} +1`, 30 + Math.random()*60, 30 + Math.random()*40, "#ffd56b");
+      if (newCount % 10 === 0) {
+        setToast({ title: "Sonderbonus!", text: `${b.name} produziert jetzt x${milestoneBonus(newCount).toFixed(1)}.` });
+      }
       setCookiePulse({ color: BUILDING_COLORS[id] || "#fff", t: Date.now() });
       setTimeout(() => setCookiePulse(null), 650);
       // beefy thump that scales a bit with count
-      const lvl = b.count + 1;
-      const freq = 140 + Math.min(100, lvl * 2);
-      const vol = Math.min(0.25, 0.08 + lvl * 0.004);
-      const dur = Math.min(0.25, 0.12 + lvl * 0.003);
+      const freq = 140 + Math.min(100, newCount * 2);
+      const vol = Math.min(0.25, 0.08 + newCount * 0.004);
+      const dur = Math.min(0.25, 0.12 + newCount * 0.003);
       playSound(freq, vol, dur);
     }
   };
@@ -537,7 +542,8 @@ export default function App() {
           {BASE_BUILDINGS.map((b) => {
             const owned = buildings[b.id].count;
             const cost = Math.floor(b.baseCost * Math.pow(COST_SCALE, owned));
-            const prod = b.baseCps * (buildingMult[b.id] || 1) * globalMult * stardustMult * achievementMult;
+            const special = milestoneBonus(owned);
+            const prod = b.baseCps * (buildingMult[b.id] || 1) * special * globalMult * stardustMult * achievementMult;
             const t = tier(owned);
             return (
               <motion.button key={b.id} whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }} onClick={() => buyBuilding(b.id)} disabled={cookies < cost} className={`w-full text-left p-3 rounded-2xl border relative overflow-hidden ${cookies >= cost ? "bg-white/10 hover:bg-white/15 border-white/20" : "bg-white/5 border-white/10 opacity-70"}`}>
@@ -551,6 +557,9 @@ export default function App() {
                     </div>
                     <div className="text-xs text-zinc-300">{b.desc}</div>
                     <div className="text-[11px] text-zinc-400 mt-1">+{fmt(prod)} CPS pro Einheit (mit Boni)</div>
+                    {special > 1 && (
+                      <div className="text-[10px] text-amber-400">Sonderbonus x{special.toFixed(1)}</div>
+                    )}
                   </div>
                 </div>
               </motion.button>
