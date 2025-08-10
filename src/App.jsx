@@ -283,6 +283,15 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [cookiePulse, setCookiePulse] = useState(null);
 
+  // Synergy: each building gains +2% power per level of previous building (exponential)
+  const synergyBonus = (id) => {
+    const idx = BASE_BUILDINGS.findIndex((b) => b.id === id);
+    if (idx <= 0) return 1;
+    const prevId = BASE_BUILDINGS[idx - 1].id;
+    const prevCount = buildings[prevId]?.count || 0;
+    return Math.pow(1.02, prevCount);
+  };
+
   // ---- WebAudio (single AudioContext) ----
   const audioRef = useRef(null);
   function getAudioCtx() {
@@ -316,7 +325,7 @@ export default function App() {
     let sum = 0;
     for (const id of Object.keys(buildings)) {
       const b = buildings[id];
-      const per = b.baseCps * (buildingMult[id] || 1) * milestoneBonus(b.count);
+      const per = b.baseCps * (buildingMult[id] || 1) * milestoneBonus(b.count) * synergyBonus(id);
       sum += b.count * per;
     }
     return sum;
@@ -656,8 +665,11 @@ export default function App() {
             const owned = buildings[b.id].count;
             const cost = Math.floor(b.baseCost * Math.pow(COST_SCALE, owned));
             const special = milestoneBonus(owned);
-            const prod = b.baseCps * (buildingMult[b.id] || 1) * special * globalMult * stardustMult * achievementMult;
+            const synergy = synergyBonus(b.id);
+            const prod = b.baseCps * (buildingMult[b.id] || 1) * special * synergy * globalMult * stardustMult * achievementMult;
             const t = tier(owned);
+            const idx = BASE_BUILDINGS.findIndex(x => x.id === b.id);
+            const prevName = idx > 0 ? BASE_BUILDINGS[idx - 1].name : null;
             return (
               <motion.button key={b.id} whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }} onClick={() => buyBuilding(b.id)} disabled={cookies < cost} className={`w-full text-left p-3 rounded-2xl border relative overflow-hidden ${cookies >= cost ? "bg-white/10 hover:bg-white/15 border-white/20" : "bg-white/5 border-white/10 opacity-70"}`}>
                 <motion.div className="absolute -inset-0.5 opacity-20" style={{ background: `radial-gradient(60% 60% at 10% 50%, ${BUILDING_COLORS[b.id]}55, transparent)` }} animate={{ opacity: [0.1, 0.25, 0.1] }} transition={{ duration: 3 - Math.max(0, t)*0.4, repeat: Infinity }} />
@@ -672,6 +684,9 @@ export default function App() {
                     <div className="text-[11px] text-zinc-400 mt-1">+{fmt(prod)} CPS pro Einheit (mit Boni)</div>
                     {special > 1 && (
                       <div className="text-[10px] text-amber-400">Sonderbonus x{special.toFixed(1)}</div>
+                    )}
+                    {synergy > 1 && (
+                      <div className="text-[10px] text-sky-400">Synergie{prevName ? ` mit ${prevName}` : ''}: x{synergy.toFixed(2)}</div>
                     )}
                   </div>
                 </div>
