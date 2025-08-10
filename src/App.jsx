@@ -587,7 +587,12 @@ export default function App() {
             <div className="grid grid-cols-2 gap-2 text-sm">
               <div>Lebenszeit‑Cookies: <span className="font-semibold">{fmt(totalCookies)}</span></div>
               <div>Klicks: <span className="font-semibold">{stats.clicks}</span></div>
-              <div>Peak CPS: <span className="font-semibold">{fmt(stats.peakCps)}</span></div>
+              <div>
+                Peak CPS: <span className="font-semibold">{fmt(stats.peakCps)}</span>
+                {cps < stats.peakCps && (
+                  <span className="text-red-500 ml-1">(-{fmt(stats.peakCps - cps)})</span>
+                )}
+              </div>
               <div>Achievements: <span className="font-semibold">{unlockedAchievements().length}/{ACHIEVEMENTS.length}</span></div>
             </div>
             <div className="h-32 mt-2">
