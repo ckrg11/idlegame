@@ -676,7 +676,7 @@ export default function App() {
           <div className="p-3 rounded-2xl bg-sky-500/10 border border-sky-400/20">
             <div className="flex items-center gap-2"><RefreshCw className="w-4 h-4 text-sky-200"/><div className="font-semibold">Forschung</div></div>
             <div className="text-sm text-zinc-300">Research: <span className="font-semibold text-zinc-100">{fmt(research)}</span></div>
-            <div className="grid grid-cols-1 gap-2 mt-2">
+            <div className="grid grid-cols-1 gap-2 mt-2 max-h-60 overflow-auto pr-1">
               {RESEARCH_NODES.map((r) => {
                 const reqOk = r.req.every((x) => ownedResearch.includes(x));
                 const owned = ownedResearch.includes(r.id);
