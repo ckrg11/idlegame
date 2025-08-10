@@ -65,6 +65,8 @@ const RESEARCH_NODES = [
   { id: "r3", name: "Automatisierung", cost: 200, effect: { type: "buildingMult", target: "factory", value: 1.5 }, req: ["r1"], desc: "+50% Fabrik." },
   { id: "r4", name: "Laborprotokolle", cost: 250, effect: { type: "labResearchBoost", value: 1.5 }, req: ["r1"], desc: "+50% Research‑Erzeugung aus Laboren." },
   { id: "r5", name: "Feinmechanik", cost: 300, effect: { type: "buildingMult", target: "cursor", value: 2 }, req: ["r2"], desc: "x2 Cursor." },
+  { id: "r6", name: "Synergetische Fabriken", cost: 500, effect: { type: "globalMult", value: 1.15 }, req: ["r5"], desc: "+15% alle Produktionen." },
+  { id: "r7", name: "Quanten‑Studien", cost: 1000, effect: { type: "labResearchBoost", value: 2 }, req: ["r6"], desc: "x2 Research aus Laboren." },
 ];
 
 const ACHIEVEMENTS = [
@@ -180,6 +182,7 @@ export default function App() {
   const [ownedUpgrades, setOwnedUpgrades] = useState([]);
   const [research, setResearch] = useState(0);
   const [ownedResearch, setOwnedResearch] = useState([]);
+  const [labResearchMult, setLabResearchMult] = useState(1);
   const [stardust, setStardust] = useState(0);
   const [buff, setBuff] = useState(null);
   const [showHint, setShowHint] = useState(true);
@@ -252,7 +255,7 @@ export default function App() {
       setStats((s) => ({ ...s, lifetimeCookies: (s.lifetimeCookies || 0) + cps / 10, peakCps: Math.max(s.peakCps, cps) }));
       const labCount = buildings.lab.count;
       if (labCount > 0) {
-        const boost = (buildingMult["lab"] || 1) * (ownedResearch.includes("r4") ? 1.5 : 1);
+        const boost = (buildingMult["lab"] || 1) * labResearchMult;
         setResearch((r) => r + (0.05 * labCount * globalMult * stardustMult * boost) / 10);
       }
       if (!golden && Math.random() < 0.02) {
@@ -273,7 +276,7 @@ export default function App() {
     }, 1000);
 
     return () => { clearInterval(tick); clearInterval(second); };
-  }, [cps, buildings, globalMult, stardustMult, buildingMult, ownedResearch, golden, buff]);
+  }, [cps, buildings, globalMult, stardustMult, buildingMult, labResearchMult, ownedResearch, golden, buff]);
 
   // Load
   useEffect(() => {
@@ -290,7 +293,13 @@ export default function App() {
         setBuildings(s.buildings || Object.fromEntries(BASE_BUILDINGS.map(b => [b.id, { ...b, count: 0 }])));
         setOwnedUpgrades(s.ownedUpgrades || []);
         setResearch(s.research || 0);
-        setOwnedResearch(s.ownedResearch || []);
+        const ownedRes = s.ownedResearch || [];
+        setOwnedResearch(ownedRes);
+        const fallbackLabMult = ownedRes.reduce((m, id) => {
+          const n = RESEARCH_NODES.find(r => r.id === id);
+          return n && n.effect.type === "labResearchBoost" ? m * n.effect.value : m;
+        }, 1);
+        setLabResearchMult(s.labResearchMult || fallbackLabMult);
         setStardust(s.stardust || 0);
         setStats(s.stats || stats);
         const last = s.lastSave || Date.now();
@@ -307,7 +316,7 @@ export default function App() {
 
   // Save
   useEffect(() => {
-    const payload = { cookies, totalCookies, perClickBase, perClickMult, globalMult, buildingMult, buildings, ownedUpgrades, research, ownedResearch, stardust, stats, lastSave: Date.now(), cpsSnapshot: cps };
+    const payload = { cookies, totalCookies, perClickBase, perClickMult, globalMult, buildingMult, buildings, ownedUpgrades, research, ownedResearch, labResearchMult, stardust, stats, lastSave: Date.now(), cpsSnapshot: cps };
     localStorage.setItem("idle-biscuit-save", JSON.stringify(payload));
   }, [cookies, totalCookies, perClickBase, perClickMult, globalMult, buildingMult, buildings, ownedUpgrades, research, ownedResearch, stardust, stats, cps]);
 
@@ -378,6 +387,7 @@ export default function App() {
     if (effect.type === "globalMult") setGlobalMult((m) => m * effect.value);
     if (effect.type === "clickMult") setPerClickMult((m) => m * effect.value);
     if (effect.type === "buildingMult") setBuildingMult((bm) => ({ ...bm, [effect.target]: (bm[effect.target] || 1) * effect.value }));
+    if (effect.type === "labResearchBoost") setLabResearchMult((m) => m * effect.value);
   }
 
   const doAscend = () => {
@@ -389,7 +399,7 @@ export default function App() {
     setGlobalMult(1); setBuildingMult({});
     setBuildings(Object.fromEntries(BASE_BUILDINGS.map(b => [b.id, { ...b, count: 0 }])));
     setOwnedUpgrades([]);
-    setResearch(0); setOwnedResearch([]);
+    setResearch(0); setOwnedResearch([]); setLabResearchMult(1);
     setStats((s) => ({ ...s, clicks: 0, buffsTriggered: 0, peakCps: 0, lifetimeCookies: 0 }));
     setToast({ title: "Aufgestiegen!", text: `Du bekommst ${gain} Stardust (+${gain}% dauerhaft).` });
   };
