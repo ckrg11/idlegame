@@ -166,7 +166,35 @@ function Orbit({ count, emoji, radius = 60, speed = 10, size = 1, center = { x: 
   );
 }
 
-function EffectLayer({ buildings }) {
+function CpsBurst({ id, cps = 0, center }) {
+  // Swirling conic gradient that reacts to CPS output
+  const color = BUILDING_COLORS[id] || "#fff";
+  const intensity = Math.log10(cps + 1); // grow slowly with cps
+  const radius = 40 + intensity * 5;
+  const wild = intensity > 3; // switch to rainbow mode
+  const duration = Math.max(5 - intensity, 0.8);
+  const background = wild
+    ? "conic-gradient(red,orange,yellow,green,cyan,blue,magenta,red)"
+    : `radial-gradient(circle, ${color}66, transparent 70%)`;
+  return (
+    <motion.div
+      className="absolute pointer-events-none rounded-full mix-blend-screen"
+      style={{
+        left: center.x,
+        top: center.y,
+        width: radius * 2,
+        height: radius * 2,
+        transform: "translate(-50%, -50%)",
+        background,
+        filter: `blur(${8 + intensity * 2}px) saturate(${1 + intensity * 0.5})`,
+      }}
+      animate={{ rotate: 360, scale: [1, 1 + intensity * 0.25, 1], opacity: [0.3, 0.7, 0.3] }}
+      transition={{ duration, repeat: Infinity, ease: "linear" }}
+    />
+  );
+}
+
+function EffectLayer({ buildings, cps }) {
   const tCursor = tier(buildings.cursor.count);
   const tGrandma = tier(buildings.grandma.count);
   const tFarm = tier(buildings.farm.count);
@@ -186,6 +214,13 @@ function EffectLayer({ buildings }) {
       {tFarm >= 0 && <Aura color="#34d399" intensity={tFarm+1} radius={48 + tFarm*5} speed={8 - tFarm} center="50% 82%" />}
       {tFactory >= 0 && <Aura color="#f59e0b" intensity={tFactory+1} radius={46 + tFactory*5} speed={7 - tFactory} center="80% 15%" />}
       {tLab >= 0 && <Aura color="#a78bfa" intensity={tLab+1} radius={46 + tLab*5} speed={7 - tLab} center="80% 50%" />}
+
+      {/* CPS-reactive bursts */}
+      {cps.cursor > 0 && <CpsBurst id="cursor" cps={cps.cursor} center={{ x: "42%", y: "58%" }} />}
+      {cps.grandma > 0 && <CpsBurst id="grandma" cps={cps.grandma} center={{ x: "22%", y: "50%" }} />}
+      {cps.farm > 0 && <CpsBurst id="farm" cps={cps.farm} center={{ x: "50%", y: "82%" }} />}
+      {cps.factory > 0 && <CpsBurst id="factory" cps={cps.factory} center={{ x: "80%", y: "15%" }} />}
+      {cps.lab > 0 && <CpsBurst id="lab" cps={cps.lab} center={{ x: "80%", y: "50%" }} />}
 
       {/* ORIGINAL EMITTERS */}
       {tCursor >= 0 && (
@@ -336,6 +371,18 @@ export default function App() {
     const g = globalMult * stardustMult * achievementMult * buffMult;
     return cpsBase * g;
   }, [cpsBase, globalMult, stardustMult, achievementMult, buff]);
+
+  const cpsPerBuilding = useMemo(() => {
+    const buffMult = buff && buff.type === "frenzy" ? buff.mult : 1;
+    const g = globalMult * stardustMult * achievementMult * buffMult;
+    const res = {};
+    for (const id of Object.keys(buildings)) {
+      const b = buildings[id];
+      const per = b.baseCps * (buildingMult[id] || 1) * milestoneBonus(b.count) * synergyBonus(id);
+      res[id] = b.count * per * g;
+    }
+    return res;
+  }, [buildings, buildingMult, globalMult, stardustMult, achievementMult, buff]);
 
   const clickValue = useMemo(() => {
     const mult = perClickMult * globalMult * stardustMult * achievementMult * (buff && buff.type === "clickFrenzy" ? buff.mult : 1);
@@ -608,7 +655,7 @@ export default function App() {
         <section className="flex-1 order-1 md:order-2">
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="relative">
             <div className="absolute -inset-8 blur-3xl rounded-full" style={{ background: `radial-gradient(circle at 50% 50%, rgba(255,200,130,${0.25+bgGlow/100}), rgba(0,0,0,0))` }} />
-            <EffectLayer buildings={buildings} />
+            <EffectLayer buildings={buildings} cps={cpsPerBuilding} />
 
             <motion.button
               onClick={clickCookie}
