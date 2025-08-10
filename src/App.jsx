@@ -132,12 +132,49 @@ function Aura({ color, intensity = 1, radius = 55, speed = 10, center = "50% 55%
   );
 }
 
+function Orbit({ count, emoji, radius = 60, speed = 10, size = 1, center = { x: "50%", y: "55%" }, reverse = false }) {
+  // Icons orbiting around a center point; number and speed scale with producer count
+  const items = useMemo(() => range(count), [count]);
+  return (
+    <motion.div
+      className="absolute"
+      style={{
+        left: center.x,
+        top: center.y,
+        width: 0,
+        height: 0,
+        transform: "translate(-50%, -50%)",
+      }}
+      animate={{ rotate: reverse ? -360 : 360 }}
+      transition={{ duration: speed, repeat: Infinity, ease: "linear" }}
+    >
+      {items.map((i) => (
+        <span
+          key={i}
+          className="absolute select-none"
+          style={{
+            transform: `rotate(${(i / count) * 360}deg) translate(${radius}px)`,
+            fontSize: `${size}rem`,
+          }}
+        >
+          {emoji}
+        </span>
+      ))}
+    </motion.div>
+  );
+}
+
 function EffectLayer({ buildings }) {
   const tCursor = tier(buildings.cursor.count);
   const tGrandma = tier(buildings.grandma.count);
   const tFarm = tier(buildings.farm.count);
   const tFactory = tier(buildings.factory.count);
   const tLab = tier(buildings.lab.count);
+  const oCursor = Math.min(Math.floor(Math.sqrt(buildings.cursor.count)), 8);
+  const oGrandma = Math.min(Math.floor(Math.sqrt(buildings.grandma.count)), 8);
+  const oFarm = Math.min(Math.floor(Math.sqrt(buildings.farm.count)), 8);
+  const oFactory = Math.min(Math.floor(Math.sqrt(buildings.factory.count)), 8);
+  const oLab = Math.min(Math.floor(Math.sqrt(buildings.lab.count)), 8);
 
   return (
     <div className="pointer-events-none absolute -inset-12 z-0 overflow-visible">
@@ -163,6 +200,60 @@ function EffectLayer({ buildings }) {
       )}
       {tLab >= 0 && (
         <Emitter count={4 + tLab * 5} emoji="🫧" area="right" size={1 + tLab * 0.12} drift={55 + tLab * 12} speed={3 + tLab} opacity={0.85} />
+      )}
+
+      {/* New orbiting icons for each producer */}
+      {oCursor > 0 && (
+        <Orbit
+          count={oCursor}
+          emoji="🖱️"
+          radius={40 + tCursor * 6}
+          speed={Math.max(8 - tCursor, 2)}
+          size={1 + tCursor * 0.1}
+          center={{ x: "45%", y: "55%" }}
+        />
+      )}
+      {oGrandma > 0 && (
+        <Orbit
+          count={oGrandma}
+          emoji="🧓"
+          radius={50 + tGrandma * 7}
+          speed={Math.max(9 - tGrandma, 3)}
+          size={1 + tGrandma * 0.1}
+          center={{ x: "25%", y: "55%" }}
+          reverse
+        />
+      )}
+      {oFarm > 0 && (
+        <Orbit
+          count={oFarm}
+          emoji="🌾"
+          radius={60 + tFarm * 7}
+          speed={Math.max(9 - tFarm, 3)}
+          size={1 + tFarm * 0.1}
+          center={{ x: "50%", y: "78%" }}
+        />
+      )}
+      {oFactory > 0 && (
+        <Orbit
+          count={oFactory}
+          emoji="🏭"
+          radius={55 + tFactory * 7}
+          speed={Math.max(7 - tFactory, 2)}
+          size={1 + tFactory * 0.1}
+          center={{ x: "75%", y: "35%" }}
+          reverse
+        />
+      )}
+      {oLab > 0 && (
+        <Orbit
+          count={oLab}
+          emoji="🧪"
+          radius={55 + tLab * 7}
+          speed={Math.max(8 - tLab, 2)}
+          size={1 + tLab * 0.1}
+          center={{ x: "78%", y: "55%" }}
+        />
       )}
     </div>
   );
