@@ -361,7 +361,15 @@ export default function App() {
 
     const second = setInterval(() => {
       setCpsHistory((h) => {
-        const nh = [...h, { t: new Date().toLocaleTimeString(), cps: cps }];
+        const time = new Date().toLocaleTimeString();
+        const g = globalMult * stardustMult * achievementMult * (buff && buff.type === "frenzy" ? buff.mult : 1);
+        const perBuilding = {};
+        for (const id of Object.keys(buildings)) {
+          const b = buildings[id];
+          const per = b.baseCps * (buildingMult[id] || 1) * milestoneBonus(b.count);
+          perBuilding[id] = b.count * per * g;
+        }
+        const nh = [...h, { t: time, ...perBuilding }];
         return nh.slice(-60);
       });
     }, 1000);
@@ -578,8 +586,10 @@ export default function App() {
                 <LineChart data={cpsHistory} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                   <XAxis dataKey="t" hide tick={false} />
                   <YAxis hide />
-                  <RTooltip formatter={(v) => fmt(v)} labelFormatter={() => "CPS"} />
-                  <Line type="monotone" dataKey="cps" dot={false} strokeWidth={2} />
+                  <RTooltip formatter={(v) => fmt(v)} />
+                  {BASE_BUILDINGS.map((b) => (
+                    <Line key={b.id} type="monotone" dataKey={b.id} dot={false} strokeWidth={2} stroke={BUILDING_COLORS[b.id]} name={b.name} />
+                  ))}
                 </LineChart>
               </ResponsiveContainer>
             </div>
