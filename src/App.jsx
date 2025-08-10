@@ -26,6 +26,8 @@ const range = (n) => Array.from({ length: Math.max(0, Math.floor(n)) }, (_, i) =
 const tier = (count) => (count >= 100 ? 4 : count >= 50 ? 3 : count >= 25 ? 2 : count >= 10 ? 1 : count >= 1 ? 0 : -1);
 // Every 10 levels, producers gain a special strength boost
 const milestoneBonus = (count) => 1 + Math.floor(count / 10) * 0.5;
+const levelProdMult = (level = 1, power = 0) => Math.pow(1.05, level - 1) * Math.pow(1.1, power);
+const costMultFromSpecs = (eff = 0) => Math.pow(0.95, eff);
 
 // Visual colours per producer
 const BUILDING_COLORS = {
@@ -44,6 +46,15 @@ const BASE_BUILDINGS = [
   { id: "factory", name: "Fabrik", baseCost: 12000, baseCps: 47, emoji: "🏭", desc: "Industrielles Backen." },
   { id: "lab", name: "Labor", baseCost: 130000, baseCps: 260, emoji: "🧪", desc: "Erforscht bessere Rezepte (generiert Research)." },
 ];
+
+const createBuildingState = (saved = {}) => {
+  const obj = {};
+  for (const b of BASE_BUILDINGS) {
+    const s = saved[b.id] || {};
+    obj[b.id] = { ...b, count: s.count || 0, xp: s.xp || 0, level: s.level || 1, specs: s.specs || [] };
+  }
+  return obj;
+};
 
 const COST_SCALE = 1.15;
 
@@ -176,7 +187,7 @@ export default function App() {
   const [perClickMult, setPerClickMult] = useState(1);
   const [globalMult, setGlobalMult] = useState(1);
   const [buildingMult, setBuildingMult] = useState({});
-  const [buildings, setBuildings] = useState(() => Object.fromEntries(BASE_BUILDINGS.map(b => [b.id, { ...b, count: 0 }])));
+  const [buildings, setBuildings] = useState(() => createBuildingState());
   const [ownedUpgrades, setOwnedUpgrades] = useState([]);
   const [research, setResearch] = useState(0);
   const [ownedResearch, setOwnedResearch] = useState([]);
@@ -222,7 +233,8 @@ export default function App() {
     let sum = 0;
     for (const id of Object.keys(buildings)) {
       const b = buildings[id];
-      const per = b.baseCps * (buildingMult[id] || 1) * milestoneBonus(b.count);
+      const power = b.specs.filter((s) => s === 'power').length;
+      const per = b.baseCps * (buildingMult[id] || 1) * milestoneBonus(b.count) * levelProdMult(b.level, power);
       sum += b.count * per;
     }
     return sum;
@@ -250,9 +262,28 @@ export default function App() {
       setCookies((c) => c + cps / 10);
       setTotalCookies((t) => t + cps / 10);
       setStats((s) => ({ ...s, lifetimeCookies: (s.lifetimeCookies || 0) + cps / 10, peakCps: Math.max(s.peakCps, cps) }));
+      setBuildings((bs) => {
+        const nb = { ...bs };
+        for (const id of Object.keys(nb)) {
+          const b = nb[id];
+          const power = b.specs.filter((s) => s === 'power').length;
+          const perUnit = b.baseCps * (buildingMult[id] || 1) * milestoneBonus(b.count) * levelProdMult(b.level, power);
+          b.xp += (perUnit * b.count) / 10;
+          while (b.xp >= b.level * 100) {
+            b.xp -= b.level * 100;
+            b.level += 1;
+            if (b.level % 10 === 0) {
+              b.specs.push(Math.random() < 0.5 ? 'power' : 'efficiency');
+            }
+          }
+        }
+        return { ...nb };
+      });
       const labCount = buildings.lab.count;
       if (labCount > 0) {
-        const boost = (buildingMult["lab"] || 1) * (ownedResearch.includes("r4") ? 1.5 : 1);
+        const labData = buildings.lab;
+        const powerLab = labData.specs.filter((s) => s === 'power').length;
+        const boost = (buildingMult["lab"] || 1) * (ownedResearch.includes("r4") ? 1.5 : 1) * levelProdMult(labData.level, powerLab) * milestoneBonus(labData.count);
         setResearch((r) => r + (0.05 * labCount * globalMult * stardustMult * boost) / 10);
       }
       if (!golden && Math.random() < 0.02) {
@@ -287,7 +318,7 @@ export default function App() {
         setPerClickMult(s.perClickMult || 1);
         setGlobalMult(s.globalMult || 1);
         setBuildingMult(s.buildingMult || {});
-        setBuildings(s.buildings || Object.fromEntries(BASE_BUILDINGS.map(b => [b.id, { ...b, count: 0 }])));
+        setBuildings(createBuildingState(s.buildings));
         setOwnedUpgrades(s.ownedUpgrades || []);
         setResearch(s.research || 0);
         setOwnedResearch(s.ownedResearch || []);
@@ -338,7 +369,8 @@ export default function App() {
 
   const buyBuilding = (id) => {
     const b = buildings[id];
-    const cost = Math.floor(b.baseCost * Math.pow(COST_SCALE, b.count));
+    const eff = b.specs.filter((s) => s === 'efficiency').length;
+    const cost = Math.floor(b.baseCost * costMultFromSpecs(eff) * Math.pow(COST_SCALE, b.count));
     if (cookies >= cost) {
       const newCount = b.count + 1;
       setCookies(cookies - cost);
@@ -387,7 +419,7 @@ export default function App() {
     setCookies(0); setTotalCookies(0);
     setPerClickBase(1); setPerClickMult(1);
     setGlobalMult(1); setBuildingMult({});
-    setBuildings(Object.fromEntries(BASE_BUILDINGS.map(b => [b.id, { ...b, count: 0 }])));
+    setBuildings(createBuildingState());
     setOwnedUpgrades([]);
     setResearch(0); setOwnedResearch([]);
     setStats((s) => ({ ...s, clicks: 0, buffsTriggered: 0, peakCps: 0, lifetimeCookies: 0 }));
@@ -542,10 +574,14 @@ export default function App() {
         <aside className="md:w-1/4 space-y-3 order-3">
           <h2 className="flex items-center gap-2 font-semibold"><TrendingUp className="w-5 h-5"/> Produzenten</h2>
           {BASE_BUILDINGS.map((b) => {
-            const owned = buildings[b.id].count;
-            const cost = Math.floor(b.baseCost * Math.pow(COST_SCALE, owned));
+            const data = buildings[b.id];
+            const owned = data.count;
+            const eff = data.specs.filter(s => s === 'efficiency').length;
+            const power = data.specs.filter(s => s === 'power').length;
+            const level = data.level;
+            const cost = Math.floor(b.baseCost * costMultFromSpecs(eff) * Math.pow(COST_SCALE, owned));
             const special = milestoneBonus(owned);
-            const prod = b.baseCps * (buildingMult[b.id] || 1) * special * globalMult * stardustMult * achievementMult;
+            const prod = b.baseCps * (buildingMult[b.id] || 1) * special * globalMult * stardustMult * achievementMult * levelProdMult(level, power);
             const t = tier(owned);
             return (
               <motion.button key={b.id} whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }} onClick={() => buyBuilding(b.id)} disabled={cookies < cost} className={`w-full text-left p-3 rounded-2xl border relative overflow-hidden ${cookies >= cost ? "bg-white/10 hover:bg-white/15 border-white/20" : "bg-white/5 border-white/10 opacity-70"}`}>
@@ -554,10 +590,11 @@ export default function App() {
                   <div className="text-2xl" aria-hidden>{b.emoji}</div>
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
-                      <div className="font-semibold">{b.name} <span className="text-xs text-zinc-400">x{owned}</span></div>
+                      <div className="font-semibold">{b.name} <span className="text-xs text-zinc-400">Lv{level} x{owned}</span></div>
                       <div className="text-amber-300 font-semibold">{fmt(cost)}</div>
                     </div>
                     <div className="text-xs text-zinc-300">{b.desc}</div>
+                    <div className="text-[10px] text-zinc-400">Level {level} – {Math.floor(data.xp)}/{level*100} XP</div>
                     <div className="text-[11px] text-zinc-400 mt-1">+{fmt(prod)} CPS pro Einheit (mit Boni)</div>
                     {special > 1 && (
                       <div className="text-[10px] text-amber-400">Sonderbonus x{special.toFixed(1)}</div>
