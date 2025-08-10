@@ -627,8 +627,8 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto p-4 flex flex-col md:flex-row gap-4">
-        <section className="md:w-1/4 space-y-3 order-2 md:order-1">
+      <main className="max-w-7xl mx-auto p-6 flex flex-col md:flex-row gap-8 items-start">
+        <section className="md:w-1/3 space-y-3 order-2 md:order-1">
           <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
             <div className="flex items-center gap-2 mb-2"><BarChart2 className="w-4 h-4"/><h3 className="font-semibold">Statistiken</h3></div>
             <div className="grid grid-cols-2 gap-2 text-sm">
@@ -650,106 +650,6 @@ export default function App() {
               </ResponsiveContainer>
             </div>
           </div>
-        </section>
-
-        <section className="flex-1 order-1 md:order-2">
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="relative">
-            <div className="absolute -inset-8 blur-3xl rounded-full" style={{ background: `radial-gradient(circle at 50% 50%, rgba(255,200,130,${0.25+bgGlow/100}), rgba(0,0,0,0))` }} />
-            <EffectLayer buildings={buildings} cps={cpsPerBuilding} />
-
-            <motion.button
-              onClick={clickCookie}
-              whileTap={{ scale: 0.95 }}
-              animate={{ boxShadow: `0 0 ${cookieGlow}px ${cookieGlow/6}px rgba(255,210,120,0.5)`, ...cookieAnim }}
-              transition={cookieAnimTransition}
-              className="relative z-10 w-full aspect-square rounded-full bg-gradient-to-br from-amber-400 to-amber-700 border-4 border-amber-900 overflow-hidden"
-            >
-              <AnimatePresence>
-                {cookiePulse && (
-                  <motion.div
-                    key={cookiePulse.t}
-                    className="absolute inset-0 rounded-full"
-                    style={{ boxShadow: `0 0 0 3px ${cookiePulse.color} inset, 0 0 18px ${cookiePulse.color}` }}
-                    animate={{ opacity: 0, scale: 1.35 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.6, ease: 'easeOut' }}
-                  />
-                )}
-              </AnimatePresence>
-
-              <div className="absolute inset-0">
-                {[...Array(12)].map((_, i) => (
-                  <div key={i} className="absolute w-6 h-6 md:w-8 md:h-8 rounded-full bg-amber-900/60" style={{
-                    left: `${10 + (i*7)%80}%`, top: `${10 + (i*11)%80}%`, transform: `scale(${0.8 + (i%3)*0.2})`
-                  }} />
-                ))}
-              </div>
-              <AnimatePresence>
-                {floatersRef.current.map((f) => (
-                  <motion.div key={f.id} initial={{ opacity: 1, y: 0 }} animate={{ opacity: 0, y: -40 }} exit={{ opacity: 0 }} className="pointer-events-none absolute text-sm md:text-base font-semibold" style={{ left: f.x, top: f.y, color: f.color }}>{f.text}</motion.div>
-                ))}
-              </AnimatePresence>
-            </motion.button>
-
-            <div className="mt-3 flex items-center gap-2 text-sm text-zinc-300">
-              <Zap className="w-4 h-4"/>
-              <span>Klick‑Wert: <span className="font-semibold text-zinc-100">{fmt(clickValue)}</span></span>
-            </div>
-
-            <AnimatePresence>
-              {buff && (
-                <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }} className={`mt-2 inline-flex items-center gap-2 px-2 py-1 rounded-lg text-xs ${buff.type === 'frenzy' ? 'bg-purple-600/30' : 'bg-emerald-600/30'} border border-white/10`}>
-                  <span>{buff.type === 'frenzy' ? 'Frenzy x7' : 'Click‑Frenzy x50'}</span>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
-        </section>
-
-        <aside className="md:w-1/4 space-y-3 order-3">
-          <h2 className="flex items-center gap-2 font-semibold"><TrendingUp className="w-5 h-5"/> Produzenten</h2>
-          {BASE_BUILDINGS.map((b) => {
-            const owned = buildings[b.id].count;
-            const cost = Math.floor(b.baseCost * Math.pow(COST_SCALE, owned));
-            const special = milestoneBonus(owned);
-            const synergy = synergyBonus(b.id);
-            const prod = b.baseCps * (buildingMult[b.id] || 1) * special * synergy * globalMult * stardustMult * achievementMult;
-            const t = tier(owned);
-            const idx = BASE_BUILDINGS.findIndex(x => x.id === b.id);
-            const prevName = idx > 0 ? BASE_BUILDINGS[idx - 1].name : null;
-            return (
-              <motion.button key={b.id} whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }} onClick={() => buyBuilding(b.id)} disabled={cookies < cost} className={`w-full text-left p-3 rounded-2xl border relative overflow-hidden ${cookies >= cost ? "bg-white/10 hover:bg-white/15 border-white/20" : "bg-white/5 border-white/10 opacity-70"}`}>
-                <motion.div className="absolute -inset-0.5 opacity-20" style={{ background: `radial-gradient(60% 60% at 10% 50%, ${BUILDING_COLORS[b.id]}55, transparent)` }} animate={{ opacity: [0.1, 0.25, 0.1] }} transition={{ duration: 3 - Math.max(0, t)*0.4, repeat: Infinity }} />
-                <div className="relative flex items-center gap-3">
-                  <div className="text-2xl" aria-hidden>{b.emoji}</div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <div className="font-semibold">{b.name} <span className="text-xs text-zinc-400">x{owned}</span></div>
-                      <div className="text-amber-300 font-semibold">{fmt(cost)}</div>
-                    </div>
-                    <div className="text-xs text-zinc-300">{b.desc}</div>
-                    <div className="text-[11px] text-zinc-400 mt-1">+{fmt(prod)} CPS pro Einheit (mit Boni)</div>
-                    {special > 1 && (
-                      <div className="text-[10px] text-amber-400">Sonderbonus x{special.toFixed(1)}</div>
-                    )}
-                    {synergy > 1 && (
-                      <div className="text-[10px] text-sky-400">Synergie{prevName ? ` mit ${prevName}` : ''}: x{synergy.toFixed(2)}</div>
-                    )}
-                  </div>
-                </div>
-              </motion.button>
-            );
-          })}
-
-          <div className="p-3 rounded-2xl bg-purple-500/10 border border-purple-400/20">
-            <div className="flex items-center gap-2 mb-1"><Crown className="w-4 h-4 text-purple-300"/><span className="font-semibold">Ascension</span></div>
-            <p className="text-sm text-zinc-300">Setzt Fortschritt zurück und verleiht <span className="text-purple-200 font-semibold">Stardust</span> (+1% dauerhaft pro Punkt). Empfohlen, wenn die Kurve flacher wird.</p>
-            <div className="flex items-center gap-3 mt-2">
-              <div className="text-sm text-zinc-300">Erhalt bei jetzt: <span className="text-purple-200 font-semibold">{fmt(prestigeFromCookies(totalCookies))}</span></div>
-              <button onClick={doAscend} disabled={prestigeFromCookies(totalCookies) <= 0} className="ml-auto px-3 py-1 rounded-xl bg-purple-600/80 hover:bg-purple-600 disabled:opacity-50 flex items-center gap-1"><RotateCw className="w-4 h-4"/> Aufsteigen</button>
-            </div>
-          </div>
-
           <h2 className="flex items-center gap-2 font-semibold"><Trophy className="w-5 h-5"/> Upgrades & Forschung</h2>
           <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
             <div className="text-sm mb-2 text-zinc-300">Einmalige Upgrades. Jeder Kauf verändert spürbar die Produktion oder Klicks.</div>
@@ -801,6 +701,105 @@ export default function App() {
                   <div key={a.id} className={`p-2 rounded-xl text-center text-[11px] border ${unlocked ? "bg-amber-400/20 border-amber-300/30" : "bg-white/5 border-white/10 opacity-60"}`}>{a.name}</div>
                 );
               })}
+            </div>
+          </div>
+        </section>
+
+        <section className="flex-1 order-1 md:order-2 flex flex-col items-center justify-center">
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="relative flex flex-col items-center">
+            <div className="absolute -inset-8 blur-3xl rounded-full" style={{ background: `radial-gradient(circle at 50% 50%, rgba(255,200,130,${0.25+bgGlow/100}), rgba(0,0,0,0))` }} />
+            <EffectLayer buildings={buildings} cps={cpsPerBuilding} />
+
+            <motion.button
+              onClick={clickCookie}
+              whileTap={{ scale: 0.95 }}
+              animate={{ boxShadow: `0 0 ${cookieGlow}px ${cookieGlow/6}px rgba(255,210,120,0.5)`, ...cookieAnim }}
+              transition={cookieAnimTransition}
+              className="relative z-10 w-64 h-64 md:w-80 md:h-80 rounded-full bg-gradient-to-br from-amber-400 to-amber-700 border-4 border-amber-900 overflow-hidden"
+            >
+              <AnimatePresence>
+                {cookiePulse && (
+                  <motion.div
+                    key={cookiePulse.t}
+                    className="absolute inset-0 rounded-full"
+                    style={{ boxShadow: `0 0 0 3px ${cookiePulse.color} inset, 0 0 18px ${cookiePulse.color}` }}
+                    animate={{ opacity: 0, scale: 1.35 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.6, ease: 'easeOut' }}
+                  />
+                )}
+              </AnimatePresence>
+
+              <div className="absolute inset-0">
+                {[...Array(12)].map((_, i) => (
+                  <div key={i} className="absolute w-6 h-6 md:w-8 md:h-8 rounded-full bg-amber-900/60" style={{
+                    left: `${10 + (i*7)%80}%`, top: `${10 + (i*11)%80}%`, transform: `scale(${0.8 + (i%3)*0.2})`
+                  }} />
+                ))}
+              </div>
+              <AnimatePresence>
+                {floatersRef.current.map((f) => (
+                  <motion.div key={f.id} initial={{ opacity: 1, y: 0 }} animate={{ opacity: 0, y: -40 }} exit={{ opacity: 0 }} className="pointer-events-none absolute text-sm md:text-base font-semibold" style={{ left: f.x, top: f.y, color: f.color }}>{f.text}</motion.div>
+                ))}
+              </AnimatePresence>
+            </motion.button>
+
+            <div className="mt-3 flex items-center gap-2 text-sm text-zinc-300 justify-center">
+              <Zap className="w-4 h-4"/>
+              <span>Klick‑Wert: <span className="font-semibold text-zinc-100">{fmt(clickValue)}</span></span>
+            </div>
+
+            <AnimatePresence>
+              {buff && (
+                <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }} className={`mt-2 inline-flex items-center gap-2 px-2 py-1 rounded-lg text-xs ${buff.type === 'frenzy' ? 'bg-purple-600/30' : 'bg-emerald-600/30'} border border-white/10`}>
+                  <span>{buff.type === 'frenzy' ? 'Frenzy x7' : 'Click‑Frenzy x50'}</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        </section>
+
+        <aside className="md:w-1/3 space-y-3 order-3">
+          <h2 className="flex items-center gap-2 font-semibold"><TrendingUp className="w-5 h-5"/> Produzenten</h2>
+          {BASE_BUILDINGS.map((b) => {
+            const owned = buildings[b.id].count;
+            const cost = Math.floor(b.baseCost * Math.pow(COST_SCALE, owned));
+            const special = milestoneBonus(owned);
+            const synergy = synergyBonus(b.id);
+            const prod = b.baseCps * (buildingMult[b.id] || 1) * special * synergy * globalMult * stardustMult * achievementMult;
+            const t = tier(owned);
+            const idx = BASE_BUILDINGS.findIndex(x => x.id === b.id);
+            const prevName = idx > 0 ? BASE_BUILDINGS[idx - 1].name : null;
+            return (
+              <motion.button key={b.id} whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }} onClick={() => buyBuilding(b.id)} disabled={cookies < cost} className={`w-full text-left p-3 rounded-2xl border relative overflow-hidden ${cookies >= cost ? "bg-white/10 hover:bg-white/15 border-white/20" : "bg-white/5 border-white/10 opacity-70"}`}>
+                <motion.div className="absolute -inset-0.5 opacity-20" style={{ background: `radial-gradient(60% 60% at 10% 50%, ${BUILDING_COLORS[b.id]}55, transparent)` }} animate={{ opacity: [0.1, 0.25, 0.1] }} transition={{ duration: 3 - Math.max(0, t)*0.4, repeat: Infinity }} />
+                <div className="relative flex items-center gap-3">
+                  <div className="text-2xl" aria-hidden>{b.emoji}</div>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <div className="font-semibold">{b.name} <span className="text-xs text-zinc-400">x{owned}</span></div>
+                      <div className="text-amber-300 font-semibold">{fmt(cost)}</div>
+                    </div>
+                    <div className="text-xs text-zinc-300">{b.desc}</div>
+                    <div className="text-[11px] text-zinc-400 mt-1">+{fmt(prod)} CPS pro Einheit (mit Boni)</div>
+                    {special > 1 && (
+                      <div className="text-[10px] text-amber-400">Sonderbonus x{special.toFixed(1)}</div>
+                    )}
+                    {synergy > 1 && (
+                      <div className="text-[10px] text-sky-400">Synergie{prevName ? ` mit ${prevName}` : ''}: x{synergy.toFixed(2)}</div>
+                    )}
+                  </div>
+                </div>
+              </motion.button>
+            );
+          })}
+
+          <div className="p-3 rounded-2xl bg-purple-500/10 border border-purple-400/20">
+            <div className="flex items-center gap-2 mb-1"><Crown className="w-4 h-4 text-purple-300"/><span className="font-semibold">Ascension</span></div>
+            <p className="text-sm text-zinc-300">Setzt Fortschritt zurück und verleiht <span className="text-purple-200 font-semibold">Stardust</span> (+1% dauerhaft pro Punkt). Empfohlen, wenn die Kurve flacher wird.</p>
+            <div className="flex items-center gap-3 mt-2">
+              <div className="text-sm text-zinc-300">Erhalt bei jetzt: <span className="text-purple-200 font-semibold">{fmt(prestigeFromCookies(totalCookies))}</span></div>
+              <button onClick={doAscend} disabled={prestigeFromCookies(totalCookies) <= 0} className="ml-auto px-3 py-1 rounded-xl bg-purple-600/80 hover:bg-purple-600 disabled:opacity-50 flex items-center gap-1"><RotateCw className="w-4 h-4"/> Aufsteigen</button>
             </div>
           </div>
         </aside>
