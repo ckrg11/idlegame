@@ -108,6 +108,8 @@
   const canvas = document.getElementById('ocean');
   const ctx = canvas.getContext('2d');
   let W=0,H=0; let DPR=1; let turboOn=true;
+  // Cached gradients to avoid expensive recreation every frame
+  let bgGradient, stripeGradient;
 
   function getDPR(){
     const sys = Math.max(1, window.devicePixelRatio||1);
@@ -118,6 +120,21 @@
     W = canvas.clientWidth; H = canvas.clientHeight;
     canvas.width = Math.floor(W * DPR); canvas.height = Math.floor(H * DPR);
     ctx.setTransform(DPR,0,0,DPR,0,0);
+    createGradients();
+  }
+
+  function createGradients(){
+    // Main vertical background gradient
+    bgGradient = ctx.createLinearGradient(0,0,0,H);
+    bgGradient.addColorStop(0, '#07253f');
+    bgGradient.addColorStop(0.6, '#083259');
+    bgGradient.addColorStop(1, '#06233c');
+
+    // Horizontal stripe gradient reused via canvas transforms
+    stripeGradient = ctx.createLinearGradient(-120,0,120,H);
+    stripeGradient.addColorStop(0,'rgba(255,255,255,0)');
+    stripeGradient.addColorStop(0.5,'rgba(255,255,255,0.06)');
+    stripeGradient.addColorStop(1,'rgba(255,255,255,0)');
   }
   window.addEventListener('resize', resize, {passive:true});
   resize();
@@ -134,21 +151,20 @@
   const quality = { stripes: 4, dust: 100 };
   function drawBackground(alpha=1){
     ctx.globalAlpha = alpha;
-    const g = ctx.createLinearGradient(0,0,0,H);
-    g.addColorStop(0, '#07253f');
-    g.addColorStop(0.6, '#083259');
-    g.addColorStop(1, '#06233c');
-    ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+    // Use cached gradients for the background
+    ctx.fillStyle = bgGradient;
+    ctx.fillRect(0,0,W,H);
 
     const t = performance.now()*0.0001; ctx.globalAlpha = 0.08 * alpha;
     for(let i=0;i<quality.stripes;i++){
       const off = (i*260 + (t*160)%520) - 200;
       const x = (W/quality.stripes)*i + (Math.sin(t*1.2+i)*W*0.06);
-      const grad = ctx.createLinearGradient(x-120+off,0,x+120+off,H);
-      grad.addColorStop(0,'rgba(255,255,255,0)');
-      grad.addColorStop(0.5,'rgba(255,255,255,0.06)');
-      grad.addColorStop(1,'rgba(255,255,255,0)');
-      ctx.fillStyle = grad; ctx.fillRect(0,0,W,H);
+      // Reuse stripe gradient and move it via transforms
+      ctx.save();
+      ctx.translate(x+off,0);
+      ctx.fillStyle = stripeGradient;
+      ctx.fillRect(-120,0,240,H);
+      ctx.restore();
     }
     ctx.globalAlpha = 1;
   }
