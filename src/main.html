@@ -721,6 +721,16 @@
     {id:'predslow', title:'Räuberbremse', desc:'-10% Räuberspeed', apply:()=>{ for(const p of predators){ p.maxSpeed*=0.9; p.baseSpeed*=0.9;} }},
     {id:'colorAffinity', title:'Farbspezialisierung', desc:'+20% Farb-Clusterung', apply:()=>{ params.colorAffinity*=1.2; }},
     {id:'bloom+', title:'Plankton-Patches', desc:'+1 simultaner Patch', apply:()=>{ game.patches.push(new Patch(rand(80,W-80), rand(80,H-80), rand(0.8,1.6), rand(9,14))); }},
+    {id:'agil+', title:'Schnelle Reaktion', desc:'+15% Agilität (Gene)', apply:()=>{ for(const b of boids){ b.genes.agility*=1.15; } }},
+    {id:'bold+', title:'Mutige Front', desc:'+15% Mut (Gene)', apply:()=>{ for(const b of boids){ b.genes.boldness*=1.15; } }},
+    {id:'forage+', title:'Suchinstinkt', desc:'+20% Nahrungssuche (Gene)', apply:()=>{ for(const b of boids){ b.genes.forage*=1.2; } }},
+    {id:'school+', title:'Disziplin', desc:'+15% Schwarmtreue (Gene)', apply:()=>{ for(const b of boids){ b.genes.schooling*=1.15; } }},
+    {id:'color+', title:'Farbtreue', desc:'+20% Farbbindung (Gene)', apply:()=>{ for(const b of boids){ b.genes.colorBias*=1.2; } }},
+    {id:'wander-', title:'Gezieltes Schwimmen', desc:'-20% Zufallsbewegung (Gene)', apply:()=>{ for(const b of boids){ b.genes.wander*=0.8; } }},
+    {id:'speed+', title:'Strömungsnutzer', desc:'+10% Max Speed', apply:()=>{ params.maxSpeed*=1.1; }},
+    {id:'force+', title:'Stärkere Flossen', desc:'+10% Max Kraft', apply:()=>{ params.maxForce*=1.1; }},
+    {id:'align+', title:'Synchronflug', desc:'+20% Ausrichtung', apply:()=>{ params.alignWeight*=1.2; }},
+    {id:'sep+', title:'Privatsphäre', desc:'+20% Trennung', apply:()=>{ params.separationWeight*=1.2; }},
   ];
 
   function pickCards(n=3){
