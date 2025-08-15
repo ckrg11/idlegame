@@ -74,6 +74,7 @@
         <span class="badge" id="popBadge">0 Fische</span>
         <span class="badge" id="roundBadge">Runde 1</span>
         <span class="badge" id="scoreBadge">Score 0</span>
+        <span class="badge" id="prestigeBadge">Prestige 0</span>
         <span class="badge" id="fpsBadge">60 FPS</span>
       </div>
     </header>
@@ -226,6 +227,7 @@
     deaths: 0,
     nextWave: 6 + Math.random()*8,
     famineUntil: 0,
+    prestige: 0,
   };
 
   // ===== Helpers: size/speed =====
@@ -362,7 +364,8 @@
       else { if(this.x<0) this.x+=W; if(this.x>W) this.x-=W; if(this.y<0) this.y+=H; if(this.y>H) this.y-=H; }
       this.wobblePhase += 0.18 + this.speed*0.05;
       // Energieverbrauch (Level reduziert etwas)
-      const costBase = 2.4 * this.genes.metabolism * (0.7 + this.speed/params.maxSpeed) * (0.7 + (this.size/12)*0.2) * Math.pow(0.92, this.level-1);
+      const levelScale = Math.pow(10, this.level-1);
+      const costBase = 2.4 * this.genes.metabolism * (0.7 + this.speed/params.maxSpeed) * (0.7 + (this.size/12)*0.2) * levelScale;
       this.energy -= costBase * dt;
       this.breedCooldown = Math.max(0, this.breedCooldown - dt);
       this.age += dt;
@@ -371,7 +374,7 @@
       const eatR = 16;
       const range = new Rect(this.x-eatR, this.y-eatR, eatR*2, eatR*2);
       const nearby = foodQt.query(range);
-      for(const f of nearby){ const d = Math.hypot(this.x-f.x, this.y-f.y); if(d < eatR+f.r && !f.eaten){ f.eaten=true; this.energy += f.energy * (1 + 0.1*(this.level-1)); game.score += 2; return; } }
+      for(const f of nearby){ const d = Math.hypot(this.x-f.x, this.y-f.y); if(d < eatR+f.r && !f.eaten){ f.eaten=true; this.energy += f.energy * Math.pow(10, this.level-1); game.score += 2; return; } }
     }
     maybeBreed(){
       const need = 110 / this.genes.fertility;
@@ -440,7 +443,7 @@
     b.speedFactor = speedFactorForSize(b.size);
     b.depth = clamp(1.1 - (b.size-5)/20, 0.60, 1.05);
     assignArchetype(b);
-    b.energy = Math.max(b.energy, 80 + 30*L);
+    b.energy = Math.max(b.energy, (80 + 30*L) * Math.pow(10, L));
   }
   function createMergedFish(level, x, y){ const b = new Fish(x,y); promoteToLevel(b, level); return b; }
 
@@ -585,7 +588,7 @@
   }
 
   // ===== Merging =====
-  const MERGE_RULES = [ {from:1, need:1000, to:2}, {from:2, need:3, to:3}, {from:3, need:3, to:4}, {from:4, need:3, to:5} ];
+  const MERGE_RULES = [ {from:1, need:10, to:2}, {from:2, need:10, to:3}, {from:3, need:10, to:4}, {from:4, need:10, to:5} ];
   let mergeAcc = 0;
   function attemptMerges(){
     let changed=false;
@@ -692,7 +695,7 @@
     requestAnimationFrame(loop);
   }
 
-  function updateBadges(){ popBadge.textContent = `${boids.length} Fische`; roundBadge.textContent = `Runde ${game.round}`; scoreBadge.textContent = `Score ${game.score}`; const secs = Math.max(0, Math.ceil(game.roundDuration - game.time)); const famine = game.famineUntil>0? ' • Hungersnot!':''; hud.textContent = `${boids.length} Fische • Runde ${game.round} • noch ${secs}s • Score ${game.score}${famine}`; }
+  function updateBadges(){ popBadge.textContent = `${boids.length} Fische`; roundBadge.textContent = `Runde ${game.round}`; scoreBadge.textContent = `Score ${game.score}`; prestigeBadge.textContent = `Prestige ${game.prestige}`; const secs = Math.max(0, Math.ceil(game.roundDuration - game.time)); const famine = game.famineUntil>0? ' • Hungersnot!':''; hud.textContent = `${boids.length} Fische • Runde ${game.round} • noch ${secs}s • Score ${game.score}${famine}`; }
 
   function autoQuality(){ if(fps < 50){ quality.stripes = 3; quality.dust = 70; params.viewRadius = 54; } else if(fps > 58){ quality.stripes = turboOn ? 4 : 6; quality.dust = turboOn ? 100 : 130; params.viewRadius = turboOn ? 56 : 60; } }
 
@@ -743,9 +746,10 @@
   function spawnPredators(n){ for(let i=0;i<n;i++){ const p=new Predator(rand(0,W), rand(0,H)); p.maxSpeed = p.baseSpeed*(1+ (game.round-1)*0.05); predators.push(p); } }
 
   function gameOver(){ game.running=false; paused=true; showCards('Game Over', `Score: ${game.score}. Nochmal?`);
-    cardsBox.innerHTML=''; const restart = document.createElement('div'); restart.className='card'; restart.innerHTML='<h3>Neustart</h3><p>Starte einen neuen Lauf (10 Fische, Basis-Settings).</p>'; const btn=document.createElement('button'); btn.textContent='Neu starten'; btn.onclick=()=>{ restartRun(); hideModal(); }; restart.appendChild(btn); cardsBox.appendChild(restart);
+    cardsBox.innerHTML=''; const restart = document.createElement('div'); restart.className='card'; restart.innerHTML='<h3>Neustart</h3><p>Starte einen neuen Lauf (10 Fische, Basis-Settings).</p>'; const btn=document.createElement('button'); btn.textContent='Neu starten'; btn.onclick=()=>{ restartRun(); hideModal(); }; restart.appendChild(btn); cardsBox.appendChild(restart); const prestigeCard = document.createElement('div'); prestigeCard.className='card'; prestigeCard.innerHTML='<h3>Prestige</h3><p>Reset mit dauerhaft +10% Nahrung.</p>'; const pbtn=document.createElement('button'); pbtn.textContent='Prestige'; pbtn.onclick=()=>{ prestige(); hideModal(); }; prestigeCard.appendChild(pbtn); cardsBox.appendChild(prestigeCard);
   }
-  function restartRun(){ boids=[]; predators=[]; obstacles.length=0; game.food=[]; game.hazards=[]; game.patches=[]; game.round=1; game.score=0; game.baseFoodRate=0.04; game.foodRate=0.12; game.foodEnergy=40; game.mutation=0.10; game.births=0; game.deaths=0; game.nextWave=6+Math.random()*8; game.famineUntil=0; spawnFish(START_FISH); paused=false; startRound(); updateBadges(); }
+  function restartRun(){ boids=[]; predators=[]; obstacles.length=0; game.food=[]; game.hazards=[]; game.patches=[]; game.round=1; game.score=0; const bonus = 1 + game.prestige*0.1; game.baseFoodRate=0.04*bonus; game.foodRate=0.12; game.foodEnergy=40*bonus; game.mutation=0.10; game.births=0; game.deaths=0; game.nextWave=6+Math.random()*8; game.famineUntil=0; spawnFish(START_FISH); paused=false; startRound(); updateBadges(); }
+  function prestige(){ game.prestige++; restartRun(); }
 
   // ===== Particles =====
   const dust = [];
@@ -762,10 +766,11 @@
 
   window.addEventListener('keydown', (e)=>{ if(e.code==='Space'){ paused=!paused; e.preventDefault(); } });
 
-  const popBadge = document.getElementById('popBadge');
-  const roundBadge = document.getElementById('roundBadge');
-  const scoreBadge = document.getElementById('scoreBadge');
-  const fpsBadge = document.getElementById('fpsBadge');
+const popBadge = document.getElementById('popBadge');
+const roundBadge = document.getElementById('roundBadge');
+const scoreBadge = document.getElementById('scoreBadge');
+const prestigeBadge = document.getElementById('prestigeBadge');
+const fpsBadge = document.getElementById('fpsBadge');
   turboOn = true; resize(); initDust();
   spawnFish(START_FISH);
   startRound();
