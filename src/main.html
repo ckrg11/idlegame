@@ -74,6 +74,7 @@
         <span class="badge" id="popBadge">0 Fische</span>
         <span class="badge" id="roundBadge">Runde 1</span>
         <span class="badge" id="scoreBadge">Score 0</span>
+        <span class="badge" id="goalBadge">Ziel 0.5/s</span>
         <span class="badge" id="prestigeBadge">Prestige 0</span>
         <span class="badge" id="fpsBadge">60 FPS</span>
       </div>
@@ -214,6 +215,8 @@
     roundDuration: 38,
     running: true,
     score: 0,
+    foodEaten: 0,
+    goalIndex: 0,
     food: [],
     hazards: [],
     patches: [],
@@ -229,6 +232,13 @@
     famineUntil: 0,
     prestige: 0,
   };
+
+  const GOALS = [
+    {score:0.5, desc:'0.5 Nahrung/s'},
+    {score:1, desc:'1 Nahrung/s'},
+    {score:1.5, desc:'1.5 Nahrung/s'},
+    {score:2, desc:'2 Nahrung/s'},
+  ];
 
   // ===== Helpers: size/speed =====
   function speedFactorForSize(sz){
@@ -374,7 +384,15 @@
       const eatR = 16;
       const range = new Rect(this.x-eatR, this.y-eatR, eatR*2, eatR*2);
       const nearby = foodQt.query(range);
-      for(const f of nearby){ const d = Math.hypot(this.x-f.x, this.y-f.y); if(d < eatR+f.r && !f.eaten){ f.eaten=true; this.energy += f.energy * Math.pow(10, this.level-1); game.score += 2; return; } }
+      for(const f of nearby){
+        const d = Math.hypot(this.x-f.x, this.y-f.y);
+        if(d < eatR+f.r && !f.eaten){
+          f.eaten=true;
+          this.energy += f.energy * Math.pow(10, this.level-1);
+          game.foodEaten += 1;
+          return;
+        }
+      }
     }
     maybeBreed(){
       const need = 110 / this.genes.fertility;
@@ -384,7 +402,6 @@
         child.energy = 42;
         boids.push(child);
         enforceLeaderQuota();
-        game.score += 8;
         game.births += 1;
         this.breedCooldown = 8;
       }
@@ -695,7 +712,19 @@
     requestAnimationFrame(loop);
   }
 
-  function updateBadges(){ popBadge.textContent = `${boids.length} Fische`; roundBadge.textContent = `Runde ${game.round}`; scoreBadge.textContent = `Score ${game.score}`; prestigeBadge.textContent = `Prestige ${game.prestige}`; const secs = Math.max(0, Math.ceil(game.roundDuration - game.time)); const famine = game.famineUntil>0? ' • Hungersnot!':''; hud.textContent = `${boids.length} Fische • Runde ${game.round} • noch ${secs}s • Score ${game.score}${famine}`; }
+  function updateBadges(){
+    game.score = game.aliveTime > 0 ? game.foodEaten / game.aliveTime : 0;
+    popBadge.textContent = `${boids.length} Fische`;
+    roundBadge.textContent = `Runde ${game.round}`;
+    scoreBadge.textContent = `Score ${game.score.toFixed(2)}`;
+    const goal = GOALS[game.goalIndex];
+    if(goal && game.score >= goal.score){ game.goalIndex++; }
+    goalBadge.textContent = GOALS[game.goalIndex] ? `Ziel ${GOALS[game.goalIndex].desc}` : 'Alle Ziele erreicht';
+    prestigeBadge.textContent = `Prestige ${game.prestige}`;
+    const secs = Math.max(0, Math.ceil(game.roundDuration - game.time));
+    const famine = game.famineUntil>0? ' • Hungersnot!':'';
+    hud.textContent = `${boids.length} Fische • Runde ${game.round} • noch ${secs}s • Score ${game.score.toFixed(2)}${famine}`;
+  }
 
   function autoQuality(){ if(fps < 50){ quality.stripes = 3; quality.dust = 70; params.viewRadius = 54; } else if(fps > 58){ quality.stripes = turboOn ? 4 : 6; quality.dust = turboOn ? 100 : 130; params.viewRadius = turboOn ? 56 : 60; } }
 
@@ -745,10 +774,17 @@
 
   function spawnPredators(n){ for(let i=0;i<n;i++){ const p=new Predator(rand(0,W), rand(0,H)); p.maxSpeed = p.baseSpeed*(1+ (game.round-1)*0.05); predators.push(p); } }
 
-  function gameOver(){ game.running=false; paused=true; showCards('Game Over', `Score: ${game.score}. Nochmal?`);
+  function gameOver(){ game.running=false; paused=true; showCards('Game Over', `Score: ${game.score.toFixed(2)} Nahrung/s. Nochmal?`);
     cardsBox.innerHTML=''; const restart = document.createElement('div'); restart.className='card'; restart.innerHTML='<h3>Neustart</h3><p>Starte einen neuen Lauf (10 Fische, Basis-Settings).</p>'; const btn=document.createElement('button'); btn.textContent='Neu starten'; btn.onclick=()=>{ restartRun(); hideModal(); }; restart.appendChild(btn); cardsBox.appendChild(restart); const prestigeCard = document.createElement('div'); prestigeCard.className='card'; prestigeCard.innerHTML='<h3>Prestige</h3><p>Reset mit dauerhaft +10% Nahrung.</p>'; const pbtn=document.createElement('button'); pbtn.textContent='Prestige'; pbtn.onclick=()=>{ prestige(); hideModal(); }; prestigeCard.appendChild(pbtn); cardsBox.appendChild(prestigeCard);
   }
-  function restartRun(){ boids=[]; predators=[]; obstacles.length=0; game.food=[]; game.hazards=[]; game.patches=[]; game.round=1; game.score=0; const bonus = 1 + game.prestige*0.1; game.baseFoodRate=0.04*bonus; game.foodRate=0.12; game.foodEnergy=40*bonus; game.mutation=0.10; game.births=0; game.deaths=0; game.nextWave=6+Math.random()*8; game.famineUntil=0; spawnFish(START_FISH); paused=false; startRound(); updateBadges(); }
+  function restartRun(){
+    boids=[]; predators=[]; obstacles.length=0; game.food=[]; game.hazards=[]; game.patches=[];
+    game.round=1; game.score=0; game.foodEaten=0; game.goalIndex=0; game.aliveTime=0;
+    const bonus = 1 + game.prestige*0.1; game.baseFoodRate=0.04*bonus;
+    game.foodRate=0.12; game.foodEnergy=40*bonus; game.mutation=0.10;
+    game.births=0; game.deaths=0; game.nextWave=6+Math.random()*8; game.famineUntil=0;
+    spawnFish(START_FISH); paused=false; startRound(); updateBadges();
+  }
   function prestige(){ game.prestige++; restartRun(); }
 
   // ===== Particles =====
@@ -769,6 +805,7 @@
 const popBadge = document.getElementById('popBadge');
 const roundBadge = document.getElementById('roundBadge');
 const scoreBadge = document.getElementById('scoreBadge');
+const goalBadge = document.getElementById('goalBadge');
 const prestigeBadge = document.getElementById('prestigeBadge');
 const fpsBadge = document.getElementById('fpsBadge');
   turboOn = true; resize(); initDust();
