@@ -215,7 +215,6 @@
     running: true,
     score: 0,
     food: [],
-    hazards: [],
     patches: [],
     baseFoodRate: 0.04,   // Baseline / s / Fisch
     foodRate: 0.12,       // historische Skalierung, bleibt für Balance
@@ -294,13 +293,6 @@
     // Patches updaten
     for(const p of game.patches) p.update(dt);
     game.patches = game.patches.filter(p=>!p.dead);
-  }
-
-  // ===== Hazards =====
-  class Hazard{ constructor(){ this.x=rand(120,W-120); this.y=rand(120,H-120); this.r=rand(80,130); this.str=rand(3,5)*game.difficulty; this.ph=rand(0,TAU); }
-    update(dt){ this.ph += dt*0.45; this.x += Math.cos(this.ph)*0.2; this.y += Math.sin(this.ph*1.2)*0.2; }
-    apply(f,dt){ const d = Math.hypot(f.x-this.x, f.y-this.y); if(d<this.r){ const k = 1 - d/this.r; f.energy -= this.str * k * dt; } }
-    draw(){ ctx.save(); ctx.strokeStyle='rgba(59,130,246,0.28)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(this.x,this.y,this.r,0,TAU); ctx.stroke(); ctx.restore(); }
   }
 
   // ===== Archetypen-Bestimmung =====
@@ -447,21 +439,13 @@
   }
   function createMergedFish(level, x, y){ const b = new Fish(x,y); promoteToLevel(b, level); return b; }
 
-  // ===== Predators =====
-  class Predator{ constructor(x,y){ this.x=x; this.y=y; this.vx=rand(-1,1); this.vy=rand(-1,1); this.size=16; this.baseSpeed=3.0; this.maxSpeed=this.baseSpeed; this.turn=0.08; }
-    update(){ const ang = Math.atan2(this.vy, this.vx) + rand(-this.turn, this.turn); const sp = this.maxSpeed; this.vx = Math.cos(ang)*sp; this.vy = Math.sin(ang)*sp; this.x += this.vx; this.y += this.vy; if(this.x<0) this.x=0, this.vx*=-1; if(this.x>W) this.x=W, this.vx*=-1; if(this.y<0) this.y=0, this.vy*=-1; if(this.y>H) this.y=H, this.vy*=-1; }
-    draw(ctx){ ctx.save(); ctx.translate(this.x,this.y); ctx.rotate(Math.atan2(this.vy,this.vx)); ctx.fillStyle = 'rgba(240,68,56,0.9)'; ctx.strokeStyle = 'rgba(0,0,0,0.3)'; const s = this.size; ctx.beginPath(); ctx.moveTo(s*1.2,0); ctx.lineTo(-s*0.8,-s*0.7); ctx.lineTo(-s*0.4,0); ctx.lineTo(-s*0.8,s*0.7); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore(); } }
-
-  // ===== Obstacles =====
-  const obstacles = [];// {x,y,r}
-
   // ===== World =====
-  let boids = []; let predators = [];
+  let boids = [];
   function spawnFish(n, atX=rand(0,W), atY=rand(0,H)){
     for(let i=0;i<n;i++) boids.push(new Fish(atX+rand(-20,20), atY+rand(-20,20)));
     enforceLeaderQuota();
   }
-  function resetWorld(){ boids=[]; predators=[]; obstacles.length=0; game.food=[]; game.hazards=[]; spawnFish( START_FISH ); }
+  function resetWorld(){ boids=[]; game.food=[]; spawnFish( START_FISH ); }
 
   // ===== Exciting mode =====
   let excitement = 0; let exTime = 0;
@@ -534,9 +518,6 @@
 
       if(excitement>0){ const dx = b.x - exX, dy = b.y - exY; const d = Math.hypot(dx,dy)||1; const reach = vr*2.2; if(d<reach){ const fall = 1 - d/reach; const tx = -swirlDir*dy/d, ty = swirlDir*dx/d; const amp = bMaxF * (b.isLeader?0.5: (b.isSmall?1.3:1.0)) * excitement * fall * 2.0; b.ax += tx*amp; b.ay += ty*amp; } if(b.isSmall){ const sp=Math.hypot(b.vx,b.vy)||1; const nx=b.vx/sp, ny=b.vy/sp; const kick = bMaxF * 1.6 * excitement; b.ax += nx*kick; b.ay += ny*kick; } }
 
-      // Prädatoren – Furchtlosigkeit reduziert Fluchtimpuls
-      for(const p of predators){ const d2 = dist2(b.x,b.y,p.x,p.y); if(d2< 140*140){ const dx=b.x-p.x, dy=b.y-p.y; const d=Math.hypot(dx,dy)||1; let steerX=dx/d*params.maxSpeed - b.vx; let steerY=dy/d*params.maxSpeed - b.vy; const m=Math.hypot(steerX,steerY)||1; const k= clamp(1 - d/(140), 0.1, 1); const fear = 1/Math.max(0.6, b.genes.boldness); b.ax += (steerX/m*bMaxF)*2.2*k*fear; b.ay += (steerY/m*bMaxF)*2.2*k*fear; } }
-
       // Leichte Exploration (Wander)
       const wanderKick = 0.002 * b.genes.wander * (b.isLeader?0.5:1);
       b.ax += (Math.random()-0.5) * wanderKick;
@@ -544,7 +525,6 @@
 
       b.tryEat(foodQt);
 
-      for(const o of obstacles){ const d = Math.hypot(b.x-o.x, b.y-o.y); const rad = o.r + 18; if(d<rad){ const dx=b.x-o.x, dy=b.y-o.y; const m=d||1; const nx=dx/m, ny=dy/m; b.ax += nx*0.2; b.ay += ny*0.2; } }
     }
 
     if(game.food.length){ game.food = game.food.filter(f=>!f.dead); }
@@ -661,27 +641,16 @@
     // leichte Partikel nur Deko
     updateDust(); drawDust();
 
-    // Hazards
-    for(const h of game.hazards) h.update(dt);
-
     computeForces();
-
-    // Predators
-    for(const p of predators){ p.update(); p.draw(ctx); }
 
     // Fische
     for(let i=boids.length-1;i>=0;i--){ const b=boids[i]; b.update(dt);
-      for(const h of game.hazards) h.apply(b, dt);
       b.maybeBreed(); if(b.energy<=0){ boids.splice(i,1); game.deaths+=1; } else b.draw(ctx);
     }
 
     // Food & Patches draw
     for(const f of game.food) f.draw();
-    for(const h of game.hazards) h.draw();
     for(const p of game.patches) p.draw();
-
-    // Obstacles (falls mal benutzt)
-    ctx.save(); ctx.globalAlpha=0.25; ctx.fillStyle='rgba(200,220,255,0.15)'; ctx.strokeStyle='rgba(200,220,255,0.35)'; for(const o of obstacles){ ctx.beginPath(); ctx.arc(o.x,o.y,o.r,0,TAU); ctx.fill(); ctx.stroke(); } ctx.restore();
 
     // Merge Checks
     mergeAcc += dt; if(mergeAcc>=1){ mergeAcc=0; attemptMerges(); }
@@ -718,7 +687,6 @@
     {id:'mut+', title:'Gen-Drift', desc:'+3% Mutationsrate', apply:()=>{ game.mutation+=0.03; }},
     {id:'smallspd', title:'Flinke Sardinen', desc:'Kleine +15% Speed', apply:()=>{ for(const b of boids){ if(b.isSmall) b.genes.speed*=1.15; } }},
     {id:'leaderAura', title:'Leader-Aura', desc:'+25% Anziehung durch Leader', apply:()=>{ params.leaderPull*=1.25; }},
-    {id:'predslow', title:'Räuberbremse', desc:'-10% Räuberspeed', apply:()=>{ for(const p of predators){ p.maxSpeed*=0.9; p.baseSpeed*=0.9;} }},
     {id:'colorAffinity', title:'Farbspezialisierung', desc:'+20% Farb-Clusterung', apply:()=>{ params.colorAffinity*=1.2; }},
     {id:'bloom+', title:'Plankton-Patches', desc:'+1 simultaner Patch', apply:()=>{ game.patches.push(new Patch(rand(80,W-80), rand(80,H-80), rand(0.8,1.6), rand(9,14))); }},
   ];
@@ -738,17 +706,12 @@
   function endRound(){ game.running=false; paused=true; showCards(`Runde ${game.round} geschafft!`, 'Wähle 1 Upgrade für den Schwarm'); }
   function startNextRound(){ game.round++; game.difficulty = 1 + (game.round-1)*0.22;
     game.foodRate = Math.max(0.08, game.foodRate * 0.98);
-    const addPred = (game.round>=2) ? Math.floor((game.round-1)/2) : 0; // R2:1, R4:2, R6:3...
-    spawnPredators(addPred);
-    if(game.round>=2) game.hazards.push(new Hazard());
     paused=false; startRound(); updateBadges(); }
-
-  function spawnPredators(n){ for(let i=0;i<n;i++){ const p=new Predator(rand(0,W), rand(0,H)); p.maxSpeed = p.baseSpeed*(1+ (game.round-1)*0.05); predators.push(p); } }
 
   function gameOver(){ game.running=false; paused=true; showCards('Game Over', `Score: ${game.score}. Nochmal?`);
     cardsBox.innerHTML=''; const restart = document.createElement('div'); restart.className='card'; restart.innerHTML='<h3>Neustart</h3><p>Starte einen neuen Lauf (10 Fische, Basis-Settings).</p>'; const btn=document.createElement('button'); btn.textContent='Neu starten'; btn.onclick=()=>{ restartRun(); hideModal(); }; restart.appendChild(btn); cardsBox.appendChild(restart); const prestigeCard = document.createElement('div'); prestigeCard.className='card'; prestigeCard.innerHTML='<h3>Prestige</h3><p>Reset mit dauerhaft +10% Nahrung.</p>'; const pbtn=document.createElement('button'); pbtn.textContent='Prestige'; pbtn.onclick=()=>{ prestige(); hideModal(); }; prestigeCard.appendChild(pbtn); cardsBox.appendChild(prestigeCard);
   }
-  function restartRun(){ boids=[]; predators=[]; obstacles.length=0; game.food=[]; game.hazards=[]; game.patches=[]; game.round=1; game.score=0; const bonus = 1 + game.prestige*0.1; game.baseFoodRate=0.04*bonus; game.foodRate=0.12; game.foodEnergy=40*bonus; game.mutation=0.10; game.births=0; game.deaths=0; game.nextWave=6+Math.random()*8; game.famineUntil=0; spawnFish(START_FISH); paused=false; startRound(); updateBadges(); }
+  function restartRun(){ boids=[]; game.food=[]; game.patches=[]; game.round=1; game.score=0; const bonus = 1 + game.prestige*0.1; game.baseFoodRate=0.04*bonus; game.foodRate=0.12; game.foodEnergy=40*bonus; game.mutation=0.10; game.births=0; game.deaths=0; game.nextWave=6+Math.random()*8; game.famineUntil=0; spawnFish(START_FISH); paused=false; startRound(); updateBadges(); }
   function prestige(){ game.prestige++; restartRun(); }
 
   // ===== Particles =====
