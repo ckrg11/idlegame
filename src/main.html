@@ -252,10 +252,35 @@
   }
 
   // ===== Food (mit TTL) =====
-  class Food{ constructor(x,y){ this.x=x; this.y=y; this.r=3; this.energy = game.foodEnergy; this.vx = rand(-0.1,0.1); this.vy = rand(-0.02,0.02)-0.01; this.eaten=false; this.age=0; this.maxLife = rand(8,14); }
-    update(dt){ this.x+=this.vx; this.y+=this.vy; if(this.x<8) this.x=8, this.vx*=-1; if(this.x>W-8) this.x=W-8, this.vx*=-1; if(this.y<8) this.y=8, this.vy*=-1; if(this.y>H-8) this.y=H-8, this.vy*=-1; this.age += dt; }
+  class Food{
+    constructor(x,y){
+      this.x=x; this.y=y;
+      this.energy = game.foodEnergy * rand(0.5,1.5);
+      this.maxEnergy = this.energy;
+      this.r = 2 + (this.energy/this.maxEnergy)*2;
+      this.vx = rand(-0.1,0.1); this.vy = rand(-0.02,0.02)-0.01;
+      this.eaten=false; this.age=0; this.maxLife = rand(8,14);
+    }
+    update(dt){
+      this.x+=this.vx; this.y+=this.vy;
+      if(this.x<8) this.x=8, this.vx*=-1;
+      if(this.x>W-8) this.x=W-8, this.vx*=-1;
+      if(this.y<8) this.y=8, this.vy*=-1;
+      if(this.y>H-8) this.y=H-8, this.vy*=-1;
+      this.age += dt;
+      this.r = 2 + (this.energy/this.maxEnergy)*2;
+    }
     get dead(){ return this.eaten || this.age>this.maxLife; }
-    draw(){ const left = clamp(1 - this.age/this.maxLife, 0, 1); ctx.save(); ctx.globalAlpha = 0.4 + left*0.6; ctx.fillStyle='rgba(255,255,200,.95)'; ctx.beginPath(); ctx.arc(this.x,this.y,this.r,0,TAU); ctx.fill(); ctx.restore(); }
+    draw(){
+      const left = clamp(1 - this.age/this.maxLife, 0, 1);
+      ctx.save();
+      ctx.globalAlpha = 0.4 + left*0.6;
+      ctx.fillStyle='rgba(255,255,200,.95)';
+      ctx.beginPath();
+      ctx.arc(this.x,this.y,this.r,0,TAU);
+      ctx.fill();
+      ctx.restore();
+    }
   }
 
   // ===== Plankton-Patches (Wellen) =====
@@ -294,6 +319,9 @@
     // Patches updaten
     for(const p of game.patches) p.update(dt);
     game.patches = game.patches.filter(p=>!p.dead);
+
+    for(const f of game.food) f.update(dt);
+    game.food = game.food.filter(f=>!f.dead);
   }
 
   // ===== Hazards =====
@@ -374,7 +402,21 @@
       const eatR = 16;
       const range = new Rect(this.x-eatR, this.y-eatR, eatR*2, eatR*2);
       const nearby = foodQt.query(range);
-      for(const f of nearby){ const d = Math.hypot(this.x-f.x, this.y-f.y); if(d < eatR+f.r && !f.eaten){ f.eaten=true; this.energy += f.energy * Math.pow(10, this.level-1); game.score += 2; return; } }
+      for(const f of nearby){
+        const d = Math.hypot(this.x-f.x, this.y-f.y);
+        if(d < eatR+f.r && !f.eaten){
+          const levelScale = 1 + 0.4*(this.level-1);
+          let bite = this.isSmall ? 4 : (this.isLeader ? 20 : 10);
+          bite *= levelScale;
+          const taken = Math.min(bite, f.energy);
+          f.energy -= taken;
+          if(f.energy <= 0.5){ f.eaten = true; f.energy = 0; }
+          else{ f.r = 2 + (f.energy / f.maxEnergy) * 2; }
+          this.energy += taken * Math.pow(10, this.level-1);
+          game.score += 2;
+          return;
+        }
+      }
     }
     maybeBreed(){
       const need = 110 / this.genes.fertility;
@@ -547,8 +589,7 @@
       for(const o of obstacles){ const d = Math.hypot(b.x-o.x, b.y-o.y); const rad = o.r + 18; if(d<rad){ const dx=b.x-o.x, dy=b.y-o.y; const m=d||1; const nx=dx/m, ny=dy/m; b.ax += nx*0.2; b.ay += ny*0.2; } }
     }
 
-    if(game.food.length){ game.food = game.food.filter(f=>!f.dead); }
-  }
+    }
 
   // ===== Stats =====
   const statsBox = document.getElementById('statsBox');
